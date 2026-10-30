@@ -19,16 +19,7 @@ class ProfileRepository(
     private val apiService: MotoNavApiService = ApiClient.apiService
 ) {
 
-    private val _user = MutableStateFlow(
-        User(
-            id = "user_1",
-            name = "Alex Rider",
-            email = "alex@motonav.com",
-            bio = "Twisty road connoisseur & long-distance motorcycle touring enthusiast.",
-            totalRidesCount = 28,
-            totalDistanceKm = 3450.0
-        )
-    )
+    private val _user = MutableStateFlow(User())
     val user: StateFlow<User> = _user.asStateFlow()
 
     private val _bikes = MutableStateFlow<List<Bike>>(AppDatabase.bikes.value)
@@ -36,13 +27,14 @@ class ProfileRepository(
 
     init {
         CoroutineScope(Dispatchers.IO).launch {
-            val userId = dataStoreManager?.userIdFlow?.first() ?: "user_1"
-            val userName = dataStoreManager?.userNameFlow?.first() ?: "Alex Rider"
-            val userEmail = dataStoreManager?.userEmailFlow?.first() ?: "alex@motonav.com"
-            _user.value = _user.value.copy(id = userId, name = userName, email = userEmail)
-
-            refreshProfile(userId)
-            refreshBikes(userId)
+            val userId = dataStoreManager?.userIdFlow?.first() ?: ""
+            val userName = dataStoreManager?.userNameFlow?.first() ?: ""
+            val userEmail = dataStoreManager?.userEmailFlow?.first() ?: ""
+            if (userId.isNotEmpty()) {
+                _user.value = _user.value.copy(id = userId, name = userName, email = userEmail)
+                refreshProfile(userId)
+                refreshBikes(userId)
+            }
         }
     }
 
@@ -51,6 +43,7 @@ class ProfileRepository(
     }
 
     suspend fun refreshProfile(userId: String = _user.value.id) {
+        if (userId.isBlank()) return
         try {
             val response = apiService.getProfile(userId)
             if (response.isSuccessful && response.body()?.data != null) {
@@ -60,6 +53,7 @@ class ProfileRepository(
     }
 
     suspend fun refreshBikes(userId: String = _user.value.id) {
+        if (userId.isBlank()) return
         try {
             val response = apiService.getBikes(userId)
             if (response.isSuccessful && response.body()?.data != null) {

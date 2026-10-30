@@ -30,15 +30,15 @@ class DataStoreManager(private val context: Context) {
     }
 
     val userIdFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_USER_ID] ?: "user_1"
+        prefs[KEY_USER_ID] ?: ""
     }
 
     val userNameFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_USER_NAME] ?: "Alex Rider"
+        prefs[KEY_USER_NAME] ?: ""
     }
 
     val userEmailFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_USER_EMAIL] ?: "alex@motonav.com"
+        prefs[KEY_USER_EMAIL] ?: ""
     }
 
     val onboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -50,7 +50,7 @@ class DataStoreManager(private val context: Context) {
     }
 
     val defaultBikeIdFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_DEFAULT_BIKE_ID] ?: "bike_1"
+        prefs[KEY_DEFAULT_BIKE_ID] ?: ""
     }
 
     suspend fun setLoggedIn(isLoggedIn: Boolean, name: String = "", email: String = "", userId: String = "") {
