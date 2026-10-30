@@ -138,6 +138,7 @@ object AppDatabase {
 
     fun addBike(bike: Bike) {
         val updated = _bikes.value.toMutableList()
+        updated.removeAll { it.id == bike.id }
         if (bike.isDefault) {
             for (i in updated.indices) {
                 updated[i] = updated[i].copy(isDefault = false)
@@ -147,22 +148,41 @@ object AppDatabase {
         _bikes.value = updated
     }
 
+    fun setBikes(newList: List<Bike>) {
+        _bikes.value = newList
+    }
+
     fun deleteBike(bikeId: String) {
         _bikes.value = _bikes.value.filter { it.id != bikeId }
     }
 
+    fun setScenicPlaces(newList: List<ScenicPlace>) {
+        _scenicPlaces.value = newList
+    }
+
     fun toggleSavePlace(placeId: String) {
-        _bikes.value // touch
         _scenicPlaces.value = _scenicPlaces.value.map {
             if (it.id == placeId) it.copy(isSaved = !it.isSaved) else it
         }
     }
 
+    fun setPhotoPosts(newList: List<PhotoPost>) {
+        _photoPosts.value = newList
+    }
+
     fun addPhotoPost(post: PhotoPost) {
-        _photoPosts.value = listOf(post) + _photoPosts.value
+        val updated = _photoPosts.value.filterNot { it.id == post.id }.toMutableList()
+        updated.add(0, post)
+        _photoPosts.value = updated
+    }
+
+    fun setRideHistory(newList: List<RideHistory>) {
+        _rideHistory.value = newList
     }
 
     fun addRideHistory(ride: RideHistory) {
-        _rideHistory.value = listOf(ride) + _rideHistory.value
+        val updated = _rideHistory.value.filterNot { it.id == ride.id }.toMutableList()
+        updated.add(0, ride)
+        _rideHistory.value = updated
     }
 }

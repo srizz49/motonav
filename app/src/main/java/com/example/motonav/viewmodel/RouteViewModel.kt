@@ -1,6 +1,7 @@
 package com.example.motonav.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.motonav.data.model.RouteInfo
 import com.example.motonav.data.model.RouteType
 import com.example.motonav.data.model.Waypoint
@@ -8,6 +9,7 @@ import com.example.motonav.data.repository.RouteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class RouteUiState(
     val selectedStartLocation: String = "Pune City Center",
@@ -16,6 +18,7 @@ data class RouteUiState(
     val fastestRoute: RouteInfo,
     val selectedRouteType: RouteType = RouteType.SCENIC,
     val waypoints: List<Waypoint> = emptyList(),
+    val isLoading: Boolean = false,
     val searchResults: List<String> = listOf(
         "Mahabaleshwar Peak",
         "Lonavala Tiger Point",
@@ -39,6 +42,24 @@ class RouteViewModel(
     )
     val uiState: StateFlow<RouteUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            routeRepository.scenicRoute.collect { scenic ->
+                _uiState.value = _uiState.value.copy(scenicRoute = scenic)
+            }
+        }
+        viewModelScope.launch {
+            routeRepository.fastestRoute.collect { fastest ->
+                _uiState.value = _uiState.value.copy(fastestRoute = fastest)
+            }
+        }
+        viewModelScope.launch {
+            routeRepository.waypoints.collect { wps ->
+                _uiState.value = _uiState.value.copy(waypoints = wps)
+            }
+        }
+    }
+
     fun selectRouteType(type: RouteType) {
         _uiState.value = _uiState.value.copy(selectedRouteType = type)
     }
@@ -60,11 +81,9 @@ class RouteViewModel(
             isStopover = true
         )
         routeRepository.addWaypoint(newWp)
-        _uiState.value = _uiState.value.copy(waypoints = routeRepository.waypoints.value)
     }
 
     fun removeWaypoint(id: String) {
         routeRepository.removeWaypoint(id)
-        _uiState.value = _uiState.value.copy(waypoints = routeRepository.waypoints.value)
     }
 }

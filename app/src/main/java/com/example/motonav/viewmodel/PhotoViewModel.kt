@@ -1,11 +1,13 @@
 package com.example.motonav.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.motonav.data.model.PhotoPost
 import com.example.motonav.data.repository.PhotoRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class AddPhotoUiState(
     val selectedImageUri: String? = null,
@@ -27,6 +29,12 @@ class PhotoViewModel(
 
     private val _addPhotoState = MutableStateFlow(AddPhotoUiState())
     val addPhotoState: StateFlow<AddPhotoUiState> = _addPhotoState.asStateFlow()
+
+    fun refresh() {
+        viewModelScope.launch {
+            photoRepository.refreshPhotos()
+        }
+    }
 
     fun onImageSelected(uriString: String) {
         _addPhotoState.value = _addPhotoState.value.copy(selectedImageUri = uriString, errorMessage = null)
@@ -57,16 +65,22 @@ class PhotoViewModel(
         }
 
         val parsedTags = state.tagsInput.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        photoRepository.addPhotoPost(
-            imageUri = uri,
-            caption = state.caption,
-            locationName = state.locationName,
-            latitude = state.latitude,
-            longitude = state.longitude,
-            tags = parsedTags
-        )
-        _addPhotoState.value = AddPhotoUiState(uploadSuccess = true)
-    }
+        _addPhotoState.value = state.copy(isUploading = true, errorMessage = null)
 
-    private fun String?.isNull_or_Empty_or_Blank(): Boolean = this.isNullOrBlank()
+        viewModelScope.launch {
+            try {
+                photoRepository.addPhotoPost(
+                    imageUri = uri,
+                    caption = state.caption,
+                    locationName = state.locationName,
+                    latitude = state.latitude,
+                    longitude = state.longitude,
+                    tags = parsedTags
+                )
+                _addPhotoState.value = AddPhotoUiState(uploadSuccess = true)
+            } catch (e: Exception) {
+                _addPhotoState.value = state.copy(isUploading = false, errorMessage = "Upload failed")
+            }
+        }
+    }
 }

@@ -1,30 +1,123 @@
 const http = require('http');
 const url = require('url');
 
-const PORT = 80; // or 3000, but app default base URL uses localhost (10.0.2.2 points to port 80/8080)
+const PORT = 3000;
 
-// In-memory data store
+// In-memory real-time data stores
 let users = [
-    { id: "user_1", name: "Alex Rider", email: "alex@motonav.com", phone: "+1234567890", bio: "Adventure motorcyclist & tourer.", profileImageUrl: "", totalRides: 42, totalKm: 12500, savedPlacesCount: 8, bikesCount: 2 }
+    {
+        id: "user_1",
+        name: "Alex Rider",
+        email: "alex@motonav.com",
+        profileImageUri: null,
+        bio: "Avid motorcycle explorer & twisty road enthusiast.",
+        memberSince: "March 2024",
+        totalRidesCount: 28,
+        totalDistanceKm: 3450.0
+    }
 ];
 
 let bikes = [
-    { id: "bike_1", name: "Royal Enfield Himalayan", brand: "Royal Enfield", model: "Himalayan 450", year: 2024, engineCc: 452, imageUrl: "" },
-    { id: "bike_2", name: "KTM Adventure 390", brand: "KTM", model: "390 Adventure", year: 2023, engineCc: 373, imageUrl: "" }
+    {
+        id: "bike_1",
+        make: "Royal Enfield",
+        model: "Himalayan 450",
+        year: 2024,
+        mileageKmpl: 30.0,
+        fuelTankCapacityLitres: 17.0,
+        isDefault: true
+    },
+    {
+        id: "bike_2",
+        make: "KTM",
+        model: "390 Adventure",
+        year: 2023,
+        mileageKmpl: 28.5,
+        fuelTankCapacityLitres: 14.5,
+        isDefault: false
+    }
 ];
 
 let scenicPlaces = [
-    { id: "place_1", title: "Blue Ridge Parkway", description: "Breathtaking mountain vistas and sweeping curves.", imageUrl: "", category: "Mountain Pass", rating: 4.9, distanceKm: 18.5, isSaved: true, latitude: 35.6131, longitude: -82.5511 },
-    { id: "place_2", title: "Pacific Coast Highway", description: "Iconic coastal road with ocean breeze and sunset views.", imageUrl: "", category: "Coastal", rating: 4.8, distanceKm: 42.0, isSaved: false, latitude: 36.6002, longitude: -121.8947 }
+    {
+        id: "place_1",
+        name: "Western Ghats Twisty Loop",
+        category: "Mountain Pass",
+        description: "Sweeping curves, hairpin turns, and dense fog during monsoons. Premier motorcycle destination.",
+        imageUrl: "https://picsum.photos/id/1018/800/400",
+        rating: 4.9,
+        reviewCount: 312,
+        distanceKm: 48.0,
+        latitude: 18.5204,
+        longitude: 73.8567,
+        isSaved: true
+    },
+    {
+        id: "place_2",
+        name: "Malshej Ghat Viewpoint",
+        category: "Viewpoint",
+        description: "Waterfall cascading directly onto the mountain road. Epic photography spots.",
+        imageUrl: "https://picsum.photos/id/1015/800/400",
+        rating: 4.8,
+        reviewCount: 245,
+        distanceKm: 85.0,
+        latitude: 19.3400,
+        longitude: 73.7800,
+        isSaved: true
+    },
+    {
+        id: "place_3",
+        name: "Tamhini Ghat Canyon",
+        category: "Waterfall Pass",
+        description: "Lush valley road with cliffside views and continuous winding tarmac.",
+        imageUrl: "https://picsum.photos/id/1043/800/400",
+        rating: 4.7,
+        reviewCount: 189,
+        distanceKm: 62.0,
+        latitude: 18.4700,
+        longitude: 73.4300,
+        isSaved: false
+    }
 ];
 
 let rides = [
-    { id: "ride_1", title: "Weekend Mountain Pass Loop", date: "2025-05-12", distanceKm: 145.2, duration: "2h 45m", routeType: "Scenic", imageUrl: "" },
-    { id: "ride_2", title: "Coastal Sunset Ride", date: "2025-05-10", distanceKm: 85.0, duration: "1h 30m", routeType: "Fastest", imageUrl: "" }
+    {
+        id: "ride_1",
+        title: "Sunday Western Ghats Explorer",
+        date: "Oct 24, 2024",
+        distanceKm: 142.5,
+        durationMinutes: 195,
+        avgSpeedKmh: 43.8,
+        fuelCostInr: 486.5,
+        routeType: "SCENIC",
+        bikeModel: "Royal Enfield Himalayan 450"
+    },
+    {
+        id: "ride_2",
+        title: "Coastal Highway Cruise",
+        date: "Oct 12, 2024",
+        distanceKm: 210.0,
+        durationMinutes: 260,
+        avgSpeedKmh: 48.4,
+        fuelCostInr: 717.5,
+        routeType: "FASTEST",
+        bikeModel: "Royal Enfield Himalayan 450"
+    }
 ];
 
 let photos = [
-    { id: "photo_1", userId: "user_1", userName: "Alex Rider", userAvatar: "", imageUrl: "", caption: "Golden hour at the peak!", locationName: "Blue Ridge Summit", latitude: 35.6131, longitude: -82.5511, timestamp: "2 hours ago", likesCount: 24, tags: ["mountain", "sunset", "himalayan"] }
+    {
+        id: "photo_1",
+        imageUri: "https://picsum.photos/id/1018/600/600",
+        caption: "Early morning mist over Western Ghats curves!",
+        locationName: "Western Ghats Loop",
+        latitude: 18.5204,
+        longitude: 73.8567,
+        tags: ["Himalayan450", "TwistyRoads", "MorningRide"],
+        timestamp: "2 days ago",
+        isUploadedRemote: true,
+        uploaderName: "Alex Rider"
+    }
 ];
 
 const server = http.createServer((req, res) => {
@@ -53,7 +146,7 @@ const server = http.createServer((req, res) => {
         try {
             if (body) jsonBody = JSON.parse(body);
         } catch (e) {
-            // ignore JSON parse error for non-json
+            // non-json body fallback
         }
 
         const sendResponse = (success, message, data) => {
@@ -66,31 +159,42 @@ const server = http.createServer((req, res) => {
         // 1. Auth: Login
         if (pathname === '/motonav_api/api/auth/login.php' && req.method === 'POST') {
             const { email, password } = jsonBody;
-            const user = users.find(u => u.email === email);
+            let user = users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
             if (user) {
                 return sendResponse(true, "Login successful", user);
             } else {
-                return sendResponse(false, "User not found. Please sign up.", null);
+                // Auto-create user on login if not found for seamless real-time usage
+                const newUser = {
+                    id: "user_" + Date.now(),
+                    name: (email || 'Rider').split('@')[0].replace(/^\w/, c => c.toUpperCase()),
+                    email: email || "rider@motonav.com",
+                    profileImageUri: null,
+                    bio: "MotoNav Explorer",
+                    memberSince: "May 2025",
+                    totalRidesCount: 0,
+                    totalDistanceKm: 0.0
+                };
+                users.push(newUser);
+                return sendResponse(true, "Account created and logged in", newUser);
             }
         }
 
         // 2. Auth: Register
         if (pathname === '/motonav_api/api/auth/register.php' && req.method === 'POST') {
-            const { name, email, password } = jsonBody;
-            if (users.find(u => u.email === email)) {
-                return sendResponse(false, "Email already registered.", null);
+            const { name, email } = jsonBody;
+            let existing = users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
+            if (existing) {
+                return sendResponse(true, "Welcome back", existing);
             }
             const newUser = {
-                id: "user_" + (users.length + 1),
-                name: name || "Rider",
-                email: email,
-                phone: "",
-                bio: "MotoNav Rider",
-                profileImageUrl: "",
-                totalRides: 0,
-                totalKm: 0,
-                savedPlacesCount: 0,
-                bikesCount: 0
+                id: "user_" + Date.now(),
+                name: name || "New Rider",
+                email: email || "rider@motonav.com",
+                profileImageUri: null,
+                bio: "New MotoNav Explorer",
+                memberSince: "May 2025",
+                totalRidesCount: 0,
+                totalDistanceKm: 0.0
             };
             users.push(newUser);
             return sendResponse(true, "Registration successful", newUser);
@@ -98,20 +202,19 @@ const server = http.createServer((req, res) => {
 
         // 3. Profile: Get
         if (pathname === '/motonav_api/api/profile/get.php' && req.method === 'GET') {
-            const userId = query.user_id || "user_1";
-            const user = users.find(u => u.id === userId) || users[0];
+            const userId = query.user_id;
+            const user = users.find(u => u.id === userId || u.email === userId) || users[0];
             return sendResponse(true, "Success", user);
         }
 
         // 4. Profile: Update
         if (pathname === '/motonav_api/api/profile/update.php' && req.method === 'POST') {
-            const { userId, name, phone, bio } = jsonBody;
-            const user = users.find(u => u.id === userId);
+            const { id, bio, name } = jsonBody;
+            const user = users.find(u => u.id === id || u.id === query.user_id) || users[0];
             if (user) {
-                if (name) user.name = name;
-                if (phone) user.phone = phone;
-                if (bio) user.bio = bio;
-                return sendResponse(true, "Profile updated", null);
+                if (bio !== undefined) user.bio = bio;
+                if (name !== undefined) user.name = name;
+                return sendResponse(true, "Profile updated", user);
             }
             return sendResponse(false, "User not found", null);
         }
@@ -123,14 +226,17 @@ const server = http.createServer((req, res) => {
             }
             if (req.method === 'POST') {
                 const newBike = {
-                    id: "bike_" + (bikes.length + 1),
-                    name: jsonBody.name || "My Bike",
-                    brand: jsonBody.brand || "Brand",
-                    model: jsonBody.model || "Model",
+                    id: "bike_" + Date.now(),
+                    make: jsonBody.make || jsonBody.brand || "Custom Make",
+                    model: jsonBody.model || "Custom Model",
                     year: jsonBody.year || 2024,
-                    engineCc: jsonBody.engineCc || 500,
-                    imageUrl: jsonBody.imageUrl || ""
+                    mileageKmpl: jsonBody.mileageKmpl || 30.0,
+                    fuelTankCapacityLitres: jsonBody.fuelTankCapacityLitres || 15.0,
+                    isDefault: jsonBody.isDefault || false
                 };
+                if (newBike.isDefault) {
+                    bikes.forEach(b => b.isDefault = false);
+                }
                 bikes.push(newBike);
                 return sendResponse(true, "Bike added", newBike);
             }
@@ -141,7 +247,7 @@ const server = http.createServer((req, res) => {
             }
         }
 
-        // 6. Places: Index & Toggle Save
+        // 6. Places: Get & Toggle Save
         if (pathname === '/motonav_api/api/places/index.php' && req.method === 'GET') {
             return sendResponse(true, "Success", scenicPlaces);
         }
@@ -160,79 +266,103 @@ const server = http.createServer((req, res) => {
         if (pathname === '/motonav_api/api/routes/index.php' && req.method === 'GET') {
             const routeData = {
                 scenic: {
-                    title: "Scenic Mountain Ridge Route",
-                    distanceKm: 124.5,
-                    estimatedDuration: "2h 15m",
-                    elevationGainM: 1420,
-                    twistinessScore: "9.2/10",
-                    description: "Winding asphalt through high altitude mountain passes with scenic overlooks.",
-                    waypointsCount: 5
+                    id: "route_scenic",
+                    title: "Western Ghats Twisties & Waterfalls",
+                    startLocationName: "Pune City",
+                    destinationName: "Mahabaleshwar Peak",
+                    type: "SCENIC",
+                    distanceKm: 142.5,
+                    durationMinutes: 195,
+                    scenicScore: 9,
+                    twistyScore: 9,
+                    waypoints: [
+                        { id: "wp_1", name: "Lonavala Viewpoint", address: "NH 48, Lonavala", latitude: 18.7557, longitude: 73.4091, isStopover: true, isScenicViewpoint: true },
+                        { id: "wp_2", name: "Khandala Hairpin Bend", address: "Ghat Section", latitude: 18.7610, longitude: 73.3762, isStopover: false, isScenicViewpoint: true },
+                        { id: "wp_3", name: "Tiger Point Refreshments", address: "Amby Valley Rd", latitude: 18.6942, longitude: 73.3812, isStopover: true, isScenicViewpoint: true }
+                    ],
+                    estimatedFuelCostInr: 486.5,
+                    roadConditions: "Smooth mountain curves, 12 hairpin bends, lush scenic vistas",
+                    description: "Selected for maximum riding enjoyment with sweeping valley views and motorcycling hotspots."
                 },
                 fastest: {
-                    title: "Fastest Highway Corridor",
-                    distanceKm: 98.0,
-                    estimatedDuration: "1h 10m",
-                    elevationGainM: 320,
-                    twistinessScore: "3.5/10",
-                    description: "Direct multi-lane highway for quick transit.",
-                    waypointsCount: 2
+                    id: "route_fastest",
+                    title: "NH-48 Express Corridor",
+                    startLocationName: "Pune City",
+                    destinationName: "Mahabaleshwar Peak",
+                    type: "FASTEST",
+                    distanceKm: 120.0,
+                    durationMinutes: 145,
+                    scenicScore: 5,
+                    twistyScore: 4,
+                    waypoints: [],
+                    estimatedFuelCostInr: 410.0,
+                    roadConditions: "4-lane dual carriageway highway, bypass roads",
+                    description: "Optimized for minimal transit time and straight highway cruising."
                 }
             };
             return sendResponse(true, "Success", routeData);
         }
 
-        // 8. Rides: Index & Record
+        // 8. Rides: Get & Record
         if (pathname === '/motonav_api/api/rides/index.php') {
             if (req.method === 'GET') {
                 return sendResponse(true, "Success", rides);
             }
             if (req.method === 'POST') {
                 const newRide = {
-                    id: "ride_" + (rides.length + 1),
-                    title: jsonBody.title || "Morning Ride",
-                    date: jsonBody.date || new Date().toISOString().split('T')[0],
+                    id: "ride_" + Date.now(),
+                    title: jsonBody.title || "New Ride",
+                    date: "Today",
                     distanceKm: jsonBody.distanceKm || 50.0,
-                    duration: jsonBody.duration || "1h 00m",
-                    routeType: jsonBody.routeType || "Scenic",
-                    imageUrl: jsonBody.imageUrl || ""
+                    durationMinutes: jsonBody.durationMinutes || 60,
+                    avgSpeedKmh: jsonBody.durationMinutes > 0 ? (jsonBody.distanceKm / (jsonBody.durationMinutes / 60.0)) : 50.0,
+                    fuelCostInr: jsonBody.fuelCostInr || 200.0,
+                    routeType: jsonBody.routeType || "SCENIC",
+                    bikeModel: jsonBody.bikeModel || "Custom Bike"
                 };
-                rides.push(newRide);
+                rides.unshift(newRide);
+
+                // Update user ride stats
+                if (users.length > 0) {
+                    users[0].totalRidesCount += 1;
+                    users[0].totalDistanceKm += newRide.distanceKm;
+                }
+
                 return sendResponse(true, "Ride recorded", newRide);
             }
         }
 
-        // 9. Photos: Index & Upload
+        // 9. Photos: Get & Upload
         if (pathname === '/motonav_api/api/photos/index.php' && req.method === 'GET') {
             return sendResponse(true, "Success", photos);
         }
 
         if (pathname === '/motonav_api/api/photos/upload.php' && req.method === 'POST') {
             const newPhoto = {
-                id: "photo_" + (photos.length + 1),
-                userId: jsonBody.userId || "user_1",
-                userName: jsonBody.userName || "Alex Rider",
-                userAvatar: "",
-                imageUrl: jsonBody.imageUrl || "",
-                caption: jsonBody.caption || "Amazing ride!",
+                id: "photo_" + Date.now(),
+                imageUri: jsonBody.imageUri || "https://picsum.photos/id/1018/600/600",
+                caption: jsonBody.caption || "Riding through scenic routes!",
                 locationName: jsonBody.locationName || "Scenic Viewpoint",
-                latitude: jsonBody.latitude || 35.6131,
-                longitude: jsonBody.longitude || -82.5511,
+                latitude: jsonBody.latitude || 18.5204,
+                longitude: jsonBody.longitude || 73.8567,
+                tags: jsonBody.tags || ["ride", "motonav"],
                 timestamp: "Just now",
-                likesCount: 0,
-                tags: jsonBody.tags || ["ride", "motonav"]
+                isUploadedRemote: true,
+                uploaderName: jsonBody.uploaderName || "Rider"
             };
-            photos.push(newPhoto);
+            photos.unshift(newPhoto);
             return sendResponse(true, "Photo uploaded", newPhoto);
         }
 
         // 10. Fuel: Stations
         if (pathname === '/motonav_api/api/fuel/stations.php' && req.method === 'GET') {
             const fuelData = {
-                petrolPrice: 1.45,
+                petrolPrice: 104.50,
                 stations: [
-                    { id: "st_1", name: "Shell Express", brand: "Shell", address: "124 Highway 101", distanceKm: 2.1, isOpen24Hours: true, hasAirWater: true },
-                    { id: "st_2", name: "BP Fuel & Go", brand: "BP", address: "502 Mountain Pass Rd", distanceKm: 5.4, isOpen24Hours: true, hasAirWater: false },
-                    { id: "st_3", name: "Chevron Station", brand: "Chevron", address: "89 Valley Way", distanceKm: 8.0, isOpen24Hours: false, hasAirWater: true }
+                    { id: "fs_1", name: "Shell Highway Station", brand: "Shell", address: "NH-48 Km 34", distanceKm: 3.2, isOpen24Hours: true, hasAirWater: true },
+                    { id: "fs_2", name: "HP Auto Energy Point", brand: "HPCL", address: "Lonavala Bypass Rd", distanceKm: 8.5, isOpen24Hours: true, hasAirWater: true },
+                    { id: "fs_3", name: "Indian Oil Express Fuel", brand: "IOCL", address: "Mountain Pass Junction", distanceKm: 14.1, isOpen24Hours: true, hasAirWater: false },
+                    { id: "fs_4", name: "BPCL Rider Oasis", brand: "BPCL", address: "Ghat Exit Km 92", distanceKm: 22.0, isOpen24Hours: false, hasAirWater: true }
                 ]
             };
             return sendResponse(true, "Success", fuelData);
@@ -243,6 +373,6 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(80, '0.0.0.0', () => {
-    console.log('MotoNav Mock Backend running on port 80 (http://localhost/motonav_api/)');
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`MotoNav Realtime Backend running on port ${PORT} (http://localhost:${PORT}/motonav_api/)`);
 });

@@ -22,14 +22,15 @@ data class FuelUiState(
     val fastestRouteCostInr: Double = 410.0,
     val isManualPrice: Boolean = true,
     val errorMessage: String? = null,
-    val nearbyStations: List<FuelStation> = emptyList()
+    val nearbyStations: List<FuelStation> = emptyList(),
+    val isLoading: Boolean = false
 )
 
 class FuelViewModel(
     private val fuelRepository: FuelRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(FuelUiState(nearbyStations = fuelRepository.nearbyFuelStations))
+    private val _uiState = MutableStateFlow(FuelUiState(nearbyStations = fuelRepository.fuelStations.value))
     val uiState: StateFlow<FuelUiState> = _uiState.asStateFlow()
 
     init {
@@ -43,6 +44,27 @@ class FuelViewModel(
                 )
                 calculateFuel()
             }
+        }
+        viewModelScope.launch {
+            fuelRepository.fuelStations.collect { stations ->
+                _uiState.value = _uiState.value.copy(nearbyStations = stations)
+            }
+        }
+        viewModelScope.launch {
+            fuelRepository.petrolPrice.collect { price ->
+                if (_uiState.value.isManualPrice) {
+                    _uiState.value = _uiState.value.copy(priceInput = String.format("%.2f", price))
+                    calculateFuel()
+                }
+            }
+        }
+    }
+
+    fun refreshStations() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            fuelRepository.refreshFuelData()
+            _uiState.value = _uiState.value.copy(isLoading = false)
         }
     }
 

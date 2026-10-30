@@ -1,17 +1,21 @@
 package com.example.motonav.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.motonav.data.model.ScenicPlace
 import com.example.motonav.data.repository.ExploreRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class ExploreUiState(
     val searchQuery: String = "",
     val selectedCategory: String = "All",
     val categories: List<String> = listOf("All", "Mountain Pass", "Viewpoint", "Waterfall Pass", "Biker Pitstop"),
-    val scenicPlaces: List<ScenicPlace> = emptyList()
+    val scenicPlaces: List<ScenicPlace> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )
 
 class ExploreViewModel(
@@ -25,6 +29,27 @@ class ExploreViewModel(
     )
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            allScenicPlaces.collect {
+                filterPlaces()
+            }
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            try {
+                exploreRepository.refreshPlaces()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = "Failed to refresh places.")
+            } finally {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }
+        }
+    }
+
     fun onSearchQueryChanged(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
         filterPlaces()
@@ -36,7 +61,9 @@ class ExploreViewModel(
     }
 
     fun toggleSavePlace(placeId: String) {
-        exploreRepository.toggleSavePlace(placeId)
+        viewModelScope.launch {
+            exploreRepository.toggleSavePlace(placeId)
+        }
     }
 
     fun getPlaceById(id: String): ScenicPlace? {

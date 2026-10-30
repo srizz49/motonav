@@ -3,11 +3,18 @@ package com.example.motonav.data.repository
 import com.example.motonav.data.model.RouteInfo
 import com.example.motonav.data.model.RouteType
 import com.example.motonav.data.model.Waypoint
+import com.example.motonav.data.remote.ApiClient
+import com.example.motonav.data.remote.MotoNavApiService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
-class RouteRepository {
+class RouteRepository(
+    private val apiService: MotoNavApiService = ApiClient.apiService
+) {
 
     private val defaultWaypoints = listOf(
         Waypoint("wp_1", "Lonavala Viewpoint", "NH 48, Lonavala", 18.7557, 73.4091, isStopover = true, isScenicViewpoint = true),
@@ -54,6 +61,24 @@ class RouteRepository {
 
     private val _waypoints = MutableStateFlow(defaultWaypoints)
     val waypoints: StateFlow<List<Waypoint>> = _waypoints.asStateFlow()
+
+    init {
+        CoroutineScope(Dispatchers.IO).launch {
+            refreshRoutes()
+        }
+    }
+
+    suspend fun refreshRoutes() {
+        try {
+            val response = apiService.getRoutes()
+            if (response.isSuccessful && response.body()?.data != null) {
+                val data = response.body()!!.data!!
+                _scenicRoute.value = data.scenic
+                _fastestRoute.value = data.fastest
+                _waypoints.value = data.scenic.waypoints
+            }
+        } catch (_: Exception) {}
+    }
 
     fun addWaypoint(waypoint: Waypoint) {
         _waypoints.value = _waypoints.value + waypoint
