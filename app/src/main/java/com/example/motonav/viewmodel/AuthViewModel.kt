@@ -65,13 +65,6 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
         }
     }
 
-    fun enterDemoMode() {
-        viewModelScope.launch {
-            authRepository.loginDemoMode()
-            _uiState.value = _uiState.value.copy(isAuthenticated = true)
-        }
-    }
-
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()

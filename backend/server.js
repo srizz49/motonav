@@ -1,131 +1,143 @@
 const http = require('http');
 const url = require('url');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = 3000;
+const DB_FILE = path.join(__dirname, 'data', 'db.json');
 
-// In-memory real-time data stores
-let users = [
-    {
-        id: "user_1",
-        name: "Alex Rider",
-        email: "alex@motonav.com",
-        profileImageUri: null,
-        bio: "Avid motorcycle explorer & twisty road enthusiast.",
-        memberSince: "March 2024",
-        totalRidesCount: 28,
-        totalDistanceKm: 3450.0
-    }
-];
+// Ensure database folder exists
+if (!fs.existsSync(path.join(__dirname, 'data'))) {
+    fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
+}
 
-let bikes = [
-    {
-        id: "bike_1",
-        make: "Royal Enfield",
-        model: "Himalayan 450",
-        year: 2024,
-        mileageKmpl: 30.0,
-        fuelTankCapacityLitres: 17.0,
-        isDefault: true
-    },
-    {
-        id: "bike_2",
-        make: "KTM",
-        model: "390 Adventure",
-        year: 2023,
-        mileageKmpl: 28.5,
-        fuelTankCapacityLitres: 14.5,
-        isDefault: false
-    }
-];
+// Initial default database structure if file doesn't exist
+const initialDb = {
+    users: [
+        {
+            id: "user_1001",
+            name: "Rider One",
+            email: "rider@motonav.com",
+            passwordHash: "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8", // SHA-256 for 'password'
+            profileImageUri: null,
+            bio: "Avid motorcycle explorer & twisty road enthusiast.",
+            memberSince: "May 2025",
+            totalRidesCount: 2,
+            totalDistanceKm: 352.5
+        }
+    ],
+    bikes: [
+        {
+            id: "bike_1001",
+            userId: "user_1001",
+            make: "Royal Enfield",
+            model: "Himalayan 450",
+            year: 2024,
+            mileageKmpl: 30.0,
+            fuelTankCapacityLitres: 17.0,
+            isDefault: true
+        }
+    ],
+    scenicPlaces: [
+        {
+            id: "place_1",
+            name: "Western Ghats Twisty Loop",
+            category: "Mountain Pass",
+            description: "Sweeping curves, hairpin turns, and dense fog during monsoons. Premier motorcycle destination.",
+            imageUrl: "https://picsum.photos/id/1018/800/400",
+            rating: 4.9,
+            reviewCount: 312,
+            distanceKm: 48.0,
+            latitude: 18.5204,
+            longitude: 73.8567,
+            isSaved: true
+        },
+        {
+            id: "place_2",
+            name: "Malshej Ghat Viewpoint",
+            category: "Viewpoint",
+            description: "Waterfall cascading directly onto the mountain road. Epic photography spots.",
+            imageUrl: "https://picsum.photos/id/1015/800/400",
+            rating: 4.8,
+            reviewCount: 245,
+            distanceKm: 85.0,
+            latitude: 19.3400,
+            longitude: 73.7800,
+            isSaved: true
+        },
+        {
+            id: "place_3",
+            name: "Tamhini Ghat Canyon",
+            category: "Waterfall Pass",
+            description: "Lush valley road with cliffside views and continuous winding tarmac.",
+            imageUrl: "https://picsum.photos/id/1043/800/400",
+            rating: 4.7,
+            reviewCount: 189,
+            distanceKm: 62.0,
+            latitude: 18.4700,
+            longitude: 73.4300,
+            isSaved: false
+        }
+    ],
+    rides: [
+        {
+            id: "ride_1001",
+            userId: "user_1001",
+            title: "Sunday Western Ghats Explorer",
+            date: "May 10, 2025",
+            distanceKm: 142.5,
+            durationMinutes: 195,
+            avgSpeedKmh: 43.8,
+            fuelCostInr: 486.5,
+            routeType: "SCENIC",
+            bikeModel: "Royal Enfield Himalayan 450"
+        }
+    ],
+    photos: [
+        {
+            id: "photo_1001",
+            userId: "user_1001",
+            imageUri: "https://picsum.photos/id/1018/600/600",
+            caption: "Early morning mist over Western Ghats curves!",
+            locationName: "Western Ghats Loop",
+            latitude: 18.5204,
+            longitude: 73.8567,
+            tags: ["Himalayan450", "TwistyRoads", "MorningRide"],
+            timestamp: "2 days ago",
+            isUploadedRemote: true,
+            uploaderName: "Rider One"
+        }
+    ]
+};
 
-let scenicPlaces = [
-    {
-        id: "place_1",
-        name: "Western Ghats Twisty Loop",
-        category: "Mountain Pass",
-        description: "Sweeping curves, hairpin turns, and dense fog during monsoons. Premier motorcycle destination.",
-        imageUrl: "https://picsum.photos/id/1018/800/400",
-        rating: 4.9,
-        reviewCount: 312,
-        distanceKm: 48.0,
-        latitude: 18.5204,
-        longitude: 73.8567,
-        isSaved: true
-    },
-    {
-        id: "place_2",
-        name: "Malshej Ghat Viewpoint",
-        category: "Viewpoint",
-        description: "Waterfall cascading directly onto the mountain road. Epic photography spots.",
-        imageUrl: "https://picsum.photos/id/1015/800/400",
-        rating: 4.8,
-        reviewCount: 245,
-        distanceKm: 85.0,
-        latitude: 19.3400,
-        longitude: 73.7800,
-        isSaved: true
-    },
-    {
-        id: "place_3",
-        name: "Tamhini Ghat Canyon",
-        category: "Waterfall Pass",
-        description: "Lush valley road with cliffside views and continuous winding tarmac.",
-        imageUrl: "https://picsum.photos/id/1043/800/400",
-        rating: 4.7,
-        reviewCount: 189,
-        distanceKm: 62.0,
-        latitude: 18.4700,
-        longitude: 73.4300,
-        isSaved: false
+function loadDb() {
+    try {
+        if (fs.existsSync(DB_FILE)) {
+            const data = fs.readFileSync(DB_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        console.error("Error loading db.json:", e);
     }
-];
+    fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2));
+    return initialDb;
+}
 
-let rides = [
-    {
-        id: "ride_1",
-        title: "Sunday Western Ghats Explorer",
-        date: "Oct 24, 2024",
-        distanceKm: 142.5,
-        durationMinutes: 195,
-        avgSpeedKmh: 43.8,
-        fuelCostInr: 486.5,
-        routeType: "SCENIC",
-        bikeModel: "Royal Enfield Himalayan 450"
-    },
-    {
-        id: "ride_2",
-        title: "Coastal Highway Cruise",
-        date: "Oct 12, 2024",
-        distanceKm: 210.0,
-        durationMinutes: 260,
-        avgSpeedKmh: 48.4,
-        fuelCostInr: 717.5,
-        routeType: "FASTEST",
-        bikeModel: "Royal Enfield Himalayan 450"
+function saveDb(db) {
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+    } catch (e) {
+        console.error("Error saving db.json:", e);
     }
-];
+}
 
-let photos = [
-    {
-        id: "photo_1",
-        imageUri: "https://picsum.photos/id/1018/600/600",
-        caption: "Early morning mist over Western Ghats curves!",
-        locationName: "Western Ghats Loop",
-        latitude: 18.5204,
-        longitude: 73.8567,
-        tags: ["Himalayan450", "TwistyRoads", "MorningRide"],
-        timestamp: "2 days ago",
-        isUploadedRemote: true,
-        uploaderName: "Alex Rider"
-    }
-];
+let db = loadDb();
 
 const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
     const query = parsedUrl.query;
 
-    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -145,76 +157,69 @@ const server = http.createServer((req, res) => {
         let jsonBody = {};
         try {
             if (body) jsonBody = JSON.parse(body);
-        } catch (e) {
-            // non-json body fallback
-        }
+        } catch (e) {}
 
         const sendResponse = (success, message, data) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success, message, data }));
         };
 
-        console.log(`[${req.method}] ${pathname}`, query, jsonBody);
+        console.log(`[${req.method}] ${pathname}`, query);
 
         // 1. Auth: Login
         if (pathname === '/motonav_api/api/auth/login.php' && req.method === 'POST') {
             const { email, password } = jsonBody;
-            let user = users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
-            if (user) {
-                return sendResponse(true, "Login successful", user);
-            } else {
-                // Auto-create user on login if not found for seamless real-time usage
-                const newUser = {
-                    id: "user_" + Date.now(),
-                    name: (email || 'Rider').split('@')[0].replace(/^\w/, c => c.toUpperCase()),
-                    email: email || "rider@motonav.com",
-                    profileImageUri: null,
-                    bio: "MotoNav Explorer",
-                    memberSince: "May 2025",
-                    totalRidesCount: 0,
-                    totalDistanceKm: 0.0
-                };
-                users.push(newUser);
-                return sendResponse(true, "Account created and logged in", newUser);
+            if (!email || !password) {
+                return sendResponse(false, "Email and password are required.", null);
             }
+            const user = db.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+            if (!user) {
+                return sendResponse(false, "No account found with this email. Please register.", null);
+            }
+            return sendResponse(true, "Login successful", user);
         }
 
         // 2. Auth: Register
         if (pathname === '/motonav_api/api/auth/register.php' && req.method === 'POST') {
-            const { name, email } = jsonBody;
-            let existing = users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
+            const { name, email, password } = jsonBody;
+            if (!name || !email || !password || password.length < 6) {
+                return sendResponse(false, "Please provide a valid name, email, and password (min 6 chars).", null);
+            }
+            const existing = db.users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
             if (existing) {
-                return sendResponse(true, "Welcome back", existing);
+                return sendResponse(false, "An account with this email already exists. Please log in.", null);
             }
             const newUser = {
                 id: "user_" + Date.now(),
-                name: name || "New Rider",
-                email: email || "rider@motonav.com",
+                name: name.trim(),
+                email: email.trim().toLowerCase(),
                 profileImageUri: null,
-                bio: "New MotoNav Explorer",
+                bio: "MotoNav Explorer",
                 memberSince: "May 2025",
                 totalRidesCount: 0,
                 totalDistanceKm: 0.0
             };
-            users.push(newUser);
-            return sendResponse(true, "Registration successful", newUser);
+            db.users.push(newUser);
+            saveDb(db);
+            return sendResponse(true, "Account created successfully!", newUser);
         }
 
         // 3. Profile: Get
         if (pathname === '/motonav_api/api/profile/get.php' && req.method === 'GET') {
             const userId = query.user_id;
-            const user = users.find(u => u.id === userId || u.email === userId) || users[0];
+            const user = db.users.find(u => u.id === userId) || db.users[0];
             return sendResponse(true, "Success", user);
         }
 
         // 4. Profile: Update
         if (pathname === '/motonav_api/api/profile/update.php' && req.method === 'POST') {
             const { id, bio, name } = jsonBody;
-            const user = users.find(u => u.id === id || u.id === query.user_id) || users[0];
+            const user = db.users.find(u => u.id === id || u.id === query.user_id) || db.users[0];
             if (user) {
                 if (bio !== undefined) user.bio = bio;
                 if (name !== undefined) user.name = name;
-                return sendResponse(true, "Profile updated", user);
+                saveDb(db);
+                return sendResponse(true, "Profile updated successfully", user);
             }
             return sendResponse(false, "User not found", null);
         }
@@ -222,12 +227,16 @@ const server = http.createServer((req, res) => {
         // 5. Bikes: Get / Add / Delete
         if (pathname === '/motonav_api/api/bikes/index.php') {
             if (req.method === 'GET') {
-                return sendResponse(true, "Success", bikes);
+                const userId = query.user_id;
+                const userBikes = db.bikes.filter(b => b.userId === userId || !b.userId);
+                return sendResponse(true, "Success", userBikes);
             }
             if (req.method === 'POST') {
+                const userId = query.user_id || jsonBody.userId || "user_1001";
                 const newBike = {
                     id: "bike_" + Date.now(),
-                    make: jsonBody.make || jsonBody.brand || "Custom Make",
+                    userId: userId,
+                    make: jsonBody.make || "Custom Make",
                     model: jsonBody.model || "Custom Model",
                     year: jsonBody.year || 2024,
                     mileageKmpl: jsonBody.mileageKmpl || 30.0,
@@ -235,28 +244,31 @@ const server = http.createServer((req, res) => {
                     isDefault: jsonBody.isDefault || false
                 };
                 if (newBike.isDefault) {
-                    bikes.forEach(b => b.isDefault = false);
+                    db.bikes.forEach(b => { if (b.userId === userId) b.isDefault = false; });
                 }
-                bikes.push(newBike);
-                return sendResponse(true, "Bike added", newBike);
+                db.bikes.push(newBike);
+                saveDb(db);
+                return sendResponse(true, "Bike added to garage", newBike);
             }
             if (req.method === 'DELETE') {
                 const bikeId = query.id;
-                bikes = bikes.filter(b => b.id !== bikeId);
-                return sendResponse(true, "Bike deleted", null);
+                db.bikes = db.bikes.filter(b => b.id !== bikeId);
+                saveDb(db);
+                return sendResponse(true, "Bike removed", null);
             }
         }
 
         // 6. Places: Get & Toggle Save
         if (pathname === '/motonav_api/api/places/index.php' && req.method === 'GET') {
-            return sendResponse(true, "Success", scenicPlaces);
+            return sendResponse(true, "Success", db.scenicPlaces);
         }
 
         if (pathname === '/motonav_api/api/places/toggle_save.php' && req.method === 'POST') {
             const placeId = jsonBody.placeId;
-            const place = scenicPlaces.find(p => p.id === placeId);
+            const place = db.scenicPlaces.find(p => p.id === placeId);
             if (place) {
                 place.isSaved = !place.isSaved;
+                saveDb(db);
                 return sendResponse(true, "Success", { isSaved: place.isSaved });
             }
             return sendResponse(false, "Place not found", { isSaved: false });
@@ -306,40 +318,46 @@ const server = http.createServer((req, res) => {
         // 8. Rides: Get & Record
         if (pathname === '/motonav_api/api/rides/index.php') {
             if (req.method === 'GET') {
-                return sendResponse(true, "Success", rides);
+                const userId = query.user_id;
+                const userRides = db.rides.filter(r => r.userId === userId || !r.userId);
+                return sendResponse(true, "Success", userRides);
             }
             if (req.method === 'POST') {
+                const userId = query.user_id || jsonBody.userId || "user_1001";
                 const newRide = {
                     id: "ride_" + Date.now(),
-                    title: jsonBody.title || "New Ride",
+                    userId: userId,
+                    title: jsonBody.title || "Rider Cruise",
                     date: "Today",
                     distanceKm: jsonBody.distanceKm || 50.0,
                     durationMinutes: jsonBody.durationMinutes || 60,
                     avgSpeedKmh: jsonBody.durationMinutes > 0 ? (jsonBody.distanceKm / (jsonBody.durationMinutes / 60.0)) : 50.0,
                     fuelCostInr: jsonBody.fuelCostInr || 200.0,
                     routeType: jsonBody.routeType || "SCENIC",
-                    bikeModel: jsonBody.bikeModel || "Custom Bike"
+                    bikeModel: jsonBody.bikeModel || "Custom Motorcycle"
                 };
-                rides.unshift(newRide);
+                db.rides.unshift(newRide);
 
-                // Update user ride stats
-                if (users.length > 0) {
-                    users[0].totalRidesCount += 1;
-                    users[0].totalDistanceKm += newRide.distanceKm;
+                const user = db.users.find(u => u.id === userId);
+                if (user) {
+                    user.totalRidesCount += 1;
+                    user.totalDistanceKm += newRide.distanceKm;
                 }
 
-                return sendResponse(true, "Ride recorded", newRide);
+                saveDb(db);
+                return sendResponse(true, "Ride recorded in history", newRide);
             }
         }
 
         // 9. Photos: Get & Upload
         if (pathname === '/motonav_api/api/photos/index.php' && req.method === 'GET') {
-            return sendResponse(true, "Success", photos);
+            return sendResponse(true, "Success", db.photos);
         }
 
         if (pathname === '/motonav_api/api/photos/upload.php' && req.method === 'POST') {
             const newPhoto = {
                 id: "photo_" + Date.now(),
+                userId: jsonBody.userId || "user_1001",
                 imageUri: jsonBody.imageUri || "https://picsum.photos/id/1018/600/600",
                 caption: jsonBody.caption || "Riding through scenic routes!",
                 locationName: jsonBody.locationName || "Scenic Viewpoint",
@@ -350,8 +368,9 @@ const server = http.createServer((req, res) => {
                 isUploadedRemote: true,
                 uploaderName: jsonBody.uploaderName || "Rider"
             };
-            photos.unshift(newPhoto);
-            return sendResponse(true, "Photo uploaded", newPhoto);
+            db.photos.unshift(newPhoto);
+            saveDb(db);
+            return sendResponse(true, "Photo posted to community map", newPhoto);
         }
 
         // 10. Fuel: Stations
@@ -374,5 +393,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`MotoNav Realtime Backend running on port ${PORT} (http://localhost:${PORT}/motonav_api/)`);
+    console.log(`MotoNav Persistent Realtime Backend running on port ${PORT} (http://localhost:${PORT}/motonav_api/)`);
 });

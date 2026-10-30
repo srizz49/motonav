@@ -71,10 +71,7 @@ fun AppNavGraph(
 
             // 2. Welcome
             composable(Screen.Welcome.route) {
-                WelcomeScreen(
-                    navController = navController,
-                    onDemoModeClick = { authViewModel.enterDemoMode() }
-                )
+                WelcomeScreen(navController = navController)
             }
 
             // 3. Onboarding

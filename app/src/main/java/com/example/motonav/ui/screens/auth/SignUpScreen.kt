@@ -178,15 +178,6 @@ fun SignUpScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        TextButton(
-            onClick = { viewModel.enterDemoMode() },
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text("Skip & Continue in Demo Mode", color = MotoOrange, fontSize = 14.sp)
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         TextButton(

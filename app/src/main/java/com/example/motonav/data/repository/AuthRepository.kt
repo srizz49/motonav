@@ -36,21 +36,14 @@ class AuthRepository(
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {
-            // Offline/fallback user creation
-            val offlineUser = User(
-                id = "user_" + email.hashCode(),
-                email = email,
-                name = email.substringBefore("@").replaceFirstChar { it.uppercase() }
-            )
-            _currentUser.value = offlineUser
-            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email, offlineUser.id)
-            Result.success(offlineUser)
+            val msg = e.message ?: "Server connection failed. Ensure backend server is running."
+            Result.failure(Exception(msg))
         }
     }
 
     suspend fun signUp(name: String, email: String, password: String): Result<User> {
         if (name.isBlank() || email.isBlank() || password.length < 6) {
-            return Result.failure(Exception("Please provide valid registration details."))
+            return Result.failure(Exception("Please provide valid registration details (min 6 chars password)."))
         }
         return try {
             val response = apiService.register(mapOf("name" to name, "email" to email, "password" to password))
@@ -64,22 +57,9 @@ class AuthRepository(
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {
-            val offlineUser = User(
-                id = "user_" + email.hashCode(),
-                name = name,
-                email = email
-            )
-            _currentUser.value = offlineUser
-            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email, offlineUser.id)
-            Result.success(offlineUser)
+            val msg = e.message ?: "Server connection failed. Ensure backend server is running."
+            Result.failure(Exception(msg))
         }
-    }
-
-    suspend fun loginDemoMode(): User {
-        val demoUser = User(id = "user_1", name = "Alex Rider", email = "alex@motonav.com")
-        _currentUser.value = demoUser
-        dataStoreManager.setLoggedIn(true, demoUser.name, demoUser.email, demoUser.id)
-        return demoUser
     }
 
     suspend fun logout() {

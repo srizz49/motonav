@@ -18,7 +18,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,8 +35,7 @@ import com.example.motonav.ui.theme.TextSecondary
 
 @Composable
 fun WelcomeScreen(
-    navController: NavController,
-    onDemoModeClick: () -> Unit = {}
+    navController: NavController
 ) {
     Box(
         modifier = Modifier
@@ -93,14 +91,14 @@ fun WelcomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Button(
-                    onClick = { navController.navigate(Screen.Onboarding.route) },
+                    onClick = { navController.navigate(Screen.SignUp.route) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MotoOrange),
                     shape = RoundedCornerShape(14.dp)
                 ) {
-                    Text(text = "Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    Text(text = "Create Account", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -115,20 +113,7 @@ fun WelcomeScreen(
                     Text(text = "I Already Have an Account", fontSize = 16.sp, color = TextPrimary)
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                TextButton(
-                    onClick = {
-                        onDemoModeClick()
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Welcome.route) { inclusive = true }
-                        }
-                    }
-                ) {
-                    Text(text = "Explore App in Demo Mode", color = MotoOrange, fontWeight = FontWeight.SemiBold)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
