@@ -1,6 +1,8 @@
 const http = require('http');
 const url = require('url');
 const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const PORT = 3000;
 
@@ -27,6 +29,20 @@ async function queryDb(sql, params = []) {
         console.error("MySQL Query Error:", err.message, "SQL:", sql);
         throw err;
     }
+}
+
+// Strict password verification supporting BCrypt ($2y$, $2a$, $2b$), SHA256, and plain text
+function verifyPassword(inputPassword, storedHash) {
+    if (!storedHash) return false;
+    if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$') || storedHash.startsWith('$2y$')) {
+        try {
+            if (bcrypt.compareSync(inputPassword, storedHash)) return true;
+        } catch (e) {}
+    }
+    const sha256 = crypto.createHash('sha256').update(inputPassword).digest('hex');
+    if (storedHash.toLowerCase() === sha256.toLowerCase()) return true;
+    if (storedHash === inputPassword) return true;
+    return false;
 }
 
 const server = http.createServer((req, res) => {
@@ -60,7 +76,7 @@ const server = http.createServer((req, res) => {
             res.end(JSON.stringify({ success, message, data }));
         };
 
-        console.log(`[${req.method}] ${pathname}`, query);
+        console.log(`[${req.method}] ${pathname}`, query, jsonBody);
 
         try {
             // 1. Auth: Login
@@ -69,19 +85,27 @@ const server = http.createServer((req, res) => {
                 if (!email || !password) {
                     return sendResponse(false, "Email and password are required.", null);
                 }
+
                 const rows = await queryDb(
-                    `SELECT id, name, email, profile_image_url as profileImageUri, bio,
+                    `SELECT id, name, email, password_hash, profile_image_url as profileImageUri, bio,
                             DATE_FORMAT(created_at, '%M %Y') as memberSince
                      FROM users
-                     WHERE LOWER(email) = LOWER(?) AND password_hash = SHA2(?, 256)`,
-                    [email.trim(), password]
+                     WHERE LOWER(email) = LOWER(?)`,
+                    [email.trim()]
                 );
 
                 if (rows.length === 0) {
-                    return sendResponse(false, "Invalid email or password.", null);
+                    return sendResponse(false, "No account found with this email. Please click Sign Up to register.", null);
                 }
 
                 const user = rows[0];
+                const isValid = verifyPassword(password, user.password_hash);
+                if (!isValid) {
+                    return sendResponse(false, "Incorrect password. Please try again.", null);
+                }
+
+                delete user.password_hash;
+
                 const stats = await queryDb(
                     `SELECT COUNT(*) as ridesCount, COALESCE(SUM(distance_km), 0) as totalKm
                      FROM rides_history WHERE user_id = ?`,
@@ -91,7 +115,7 @@ const server = http.createServer((req, res) => {
                 user.totalRidesCount = Number(stats[0].ridesCount) || 0;
                 user.totalDistanceKm = Number(stats[0].totalKm) || 0.0;
 
-                return sendResponse(true, "Login successful", user);
+                return sendResponse(true, "Login successful!", user);
             }
 
             // 2. Auth: Register
@@ -107,13 +131,15 @@ const server = http.createServer((req, res) => {
                 );
 
                 if (existing.length > 0) {
-                    return sendResponse(false, "An account with this email address already exists.", null);
+                    return sendResponse(false, "An account with this email address already exists. Please log in.", null);
                 }
 
                 const userId = "user_" + Date.now();
+                const passwordHash = bcrypt.hashSync(password, 10);
+
                 await queryDb(
-                    `INSERT INTO users (id, name, email, password_hash, bio) VALUES (?, ?, ?, SHA2(?, 256), ?)`,
-                    [userId, name.trim(), email.trim().toLowerCase(), password, "MotoNav Rider"]
+                    `INSERT INTO users (id, name, email, password_hash, bio) VALUES (?, ?, ?, ?, ?)`,
+                    [userId, name.trim(), email.trim().toLowerCase(), passwordHash, "MotoNav Rider"]
                 );
 
                 const newUser = {
@@ -132,7 +158,7 @@ const server = http.createServer((req, res) => {
 
             // 3. Profile: Get
             if (pathname === '/motonav_api/api/profile/get.php' && req.method === 'GET') {
-                const userId = query.user_id || "user_1001";
+                const userId = query.user_id || "user_1";
                 const rows = await queryDb(
                     `SELECT id, name, email, profile_image_url as profileImageUri, bio,
                             DATE_FORMAT(created_at, '%M %Y') as memberSince
@@ -173,7 +199,7 @@ const server = http.createServer((req, res) => {
 
             // 5. Bikes: Get / Add / Delete
             if (pathname === '/motonav_api/api/bikes/index.php') {
-                const userId = query.user_id || jsonBody.userId || "user_1001";
+                const userId = query.user_id || jsonBody.userId || "user_1";
 
                 if (req.method === 'GET') {
                     const rows = await queryDb(
@@ -243,7 +269,7 @@ const server = http.createServer((req, res) => {
 
             // 6. Places: Index & Toggle Save
             if (pathname === '/motonav_api/api/places/index.php' && req.method === 'GET') {
-                const userId = query.user_id || "user_1001";
+                const userId = query.user_id || "user_1";
                 const rows = await queryDb(
                     `SELECT p.id, p.name, p.category, p.description, p.image_url as imageUrl,
                             p.rating, p.review_count as reviewCount, p.distance_km as distanceKm,
@@ -272,7 +298,7 @@ const server = http.createServer((req, res) => {
             }
 
             if (pathname === '/motonav_api/api/places/toggle_save.php' && req.method === 'POST') {
-                const { userId = "user_1001", placeId } = jsonBody;
+                const { userId = "user_1", placeId } = jsonBody;
                 if (!placeId) return sendResponse(false, "placeId is required", null);
 
                 const saved = await queryDb(
@@ -332,7 +358,7 @@ const server = http.createServer((req, res) => {
 
             // 8. Rides: Get & Record
             if (pathname === '/motonav_api/api/rides/index.php') {
-                const userId = query.user_id || jsonBody.userId || "user_1001";
+                const userId = query.user_id || jsonBody.userId || "user_1";
 
                 if (req.method === 'GET') {
                     const rows = await queryDb(
@@ -426,7 +452,7 @@ const server = http.createServer((req, res) => {
 
             if (pathname === '/motonav_api/api/photos/upload.php' && req.method === 'POST') {
                 const photoId = "photo_" + Date.now();
-                const userId = jsonBody.userId || "user_1001";
+                const userId = jsonBody.userId || "user_1";
                 const tagsStr = Array.isArray(jsonBody.tags) ? jsonBody.tags.join(',') : (jsonBody.tags || "ride,motonav");
 
                 await queryDb(
@@ -490,7 +516,7 @@ const server = http.createServer((req, res) => {
 
         } catch (err) {
             console.error("API Processing Error:", err);
-            sendResponse(false, "MySQL Server Database Error: " + err.message, null, 500);
+            sendResponse(false, "MySQL Server Error: " + err.message, null, 500);
         }
     });
 });
