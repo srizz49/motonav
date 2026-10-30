@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TwoWheeler
@@ -24,12 +24,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.motonav.di.AppModule
 import com.example.motonav.navigation.Screen
 import com.example.motonav.ui.theme.MotoDarkBackground
 import com.example.motonav.ui.theme.MotoOrange
 import com.example.motonav.ui.theme.TextPrimary
 import com.example.motonav.ui.theme.TextSecondary
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun SplashScreen(navController: NavController) {
@@ -44,8 +46,12 @@ fun SplashScreen(navController: NavController) {
             targetValue = 1.0f,
             animationSpec = tween(durationMillis = 300)
         )
-        delay(1000)
-        navController.navigate(Screen.Welcome.route) {
+        delay(400)
+
+        val isLoggedIn = AppModule.authRepository.isLoggedIn.first()
+        val targetScreen = if (isLoggedIn) Screen.Home.route else Screen.Welcome.route
+
+        navController.navigate(targetScreen) {
             popUpTo(Screen.Splash.route) { inclusive = true }
         }
     }

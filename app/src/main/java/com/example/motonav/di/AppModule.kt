@@ -39,7 +39,7 @@ object AppModule {
     val photoRepository by lazy { PhotoRepository() }
     val exploreRepository by lazy { ExploreRepository() }
     val ridesRepository by lazy { RidesRepository() }
-    val profileRepository by lazy { ProfileRepository() }
+    val profileRepository by lazy { ProfileRepository(getDataStoreManager()) }
 
     fun provideAuthViewModel(): AuthViewModel = AuthViewModel(authRepository)
     fun provideHomeViewModel(): HomeViewModel = HomeViewModel(routeRepository, exploreRepository)

@@ -18,6 +18,7 @@ class AuthRepository(
     val currentUser: StateFlow<User> = _currentUser.asStateFlow()
 
     val isLoggedIn: Flow<Boolean> = dataStoreManager.isLoggedInFlow
+    val userIdFlow: Flow<String> = dataStoreManager.userIdFlow
 
     suspend fun login(email: String, password: String): Result<User> {
         if (email.isBlank() || password.length < 6) {
@@ -28,20 +29,21 @@ class AuthRepository(
             if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
                 val user = response.body()!!.data!!
                 _currentUser.value = user
-                dataStoreManager.setLoggedIn(true, user.name, user.email)
+                dataStoreManager.setLoggedIn(true, user.name, user.email, user.id)
                 Result.success(user)
             } else {
                 val msg = response.body()?.message ?: "Login failed. Please check credentials."
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {
-            // Local fallback / offline handling if server unreachable
+            // Offline/fallback user creation
             val offlineUser = User(
+                id = "user_" + email.hashCode(),
                 email = email,
                 name = email.substringBefore("@").replaceFirstChar { it.uppercase() }
             )
             _currentUser.value = offlineUser
-            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email)
+            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email, offlineUser.id)
             Result.success(offlineUser)
         }
     }
@@ -55,16 +57,20 @@ class AuthRepository(
             if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
                 val user = response.body()!!.data!!
                 _currentUser.value = user
-                dataStoreManager.setLoggedIn(true, user.name, user.email)
+                dataStoreManager.setLoggedIn(true, user.name, user.email, user.id)
                 Result.success(user)
             } else {
                 val msg = response.body()?.message ?: "Sign up failed."
                 Result.failure(Exception(msg))
             }
         } catch (e: Exception) {
-            val offlineUser = User(name = name, email = email)
+            val offlineUser = User(
+                id = "user_" + email.hashCode(),
+                name = name,
+                email = email
+            )
             _currentUser.value = offlineUser
-            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email)
+            dataStoreManager.setLoggedIn(true, offlineUser.name, offlineUser.email, offlineUser.id)
             Result.success(offlineUser)
         }
     }
@@ -72,7 +78,7 @@ class AuthRepository(
     suspend fun loginDemoMode(): User {
         val demoUser = User(id = "user_1", name = "Alex Rider", email = "alex@motonav.com")
         _currentUser.value = demoUser
-        dataStoreManager.setLoggedIn(true, demoUser.name, demoUser.email)
+        dataStoreManager.setLoggedIn(true, demoUser.name, demoUser.email, demoUser.id)
         return demoUser
     }
 

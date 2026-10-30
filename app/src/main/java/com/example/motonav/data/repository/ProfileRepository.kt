@@ -1,6 +1,7 @@
 package com.example.motonav.data.repository
 
 import com.example.motonav.data.local.AppDatabase
+import com.example.motonav.data.local.DataStoreManager
 import com.example.motonav.data.model.Bike
 import com.example.motonav.data.model.User
 import com.example.motonav.data.remote.ApiClient
@@ -10,9 +11,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ProfileRepository(
+    private val dataStoreManager: DataStoreManager? = null,
     private val apiService: MotoNavApiService = ApiClient.apiService
 ) {
 
@@ -33,8 +36,13 @@ class ProfileRepository(
 
     init {
         CoroutineScope(Dispatchers.IO).launch {
-            refreshProfile()
-            refreshBikes()
+            val userId = dataStoreManager?.userIdFlow?.first() ?: "user_1"
+            val userName = dataStoreManager?.userNameFlow?.first() ?: "Alex Rider"
+            val userEmail = dataStoreManager?.userEmailFlow?.first() ?: "alex@motonav.com"
+            _user.value = _user.value.copy(id = userId, name = userName, email = userEmail)
+
+            refreshProfile(userId)
+            refreshBikes(userId)
         }
     }
 

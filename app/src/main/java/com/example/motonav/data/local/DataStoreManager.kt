@@ -17,6 +17,7 @@ class DataStoreManager(private val context: Context) {
 
     companion object {
         val KEY_IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
+        val KEY_USER_ID = stringPreferencesKey("user_id")
         val KEY_USER_NAME = stringPreferencesKey("user_name")
         val KEY_USER_EMAIL = stringPreferencesKey("user_email")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
@@ -28,8 +29,16 @@ class DataStoreManager(private val context: Context) {
         prefs[KEY_IS_LOGGED_IN] ?: false
     }
 
+    val userIdFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_USER_ID] ?: "user_1"
+    }
+
     val userNameFlow: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_USER_NAME] ?: "Alex Rider"
+    }
+
+    val userEmailFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_USER_EMAIL] ?: "alex@motonav.com"
     }
 
     val onboardingCompletedFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -37,18 +46,19 @@ class DataStoreManager(private val context: Context) {
     }
 
     val petrolPriceFlow: Flow<Double> = context.dataStore.data.map { prefs ->
-        prefs[KEY_PETROL_PRICE_INR] ?: 102.50
+        prefs[KEY_PETROL_PRICE_INR] ?: 104.50
     }
 
     val defaultBikeIdFlow: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_DEFAULT_BIKE_ID] ?: "bike_1"
     }
 
-    suspend fun setLoggedIn(isLoggedIn: Boolean, name: String = "", email: String = "") {
+    suspend fun setLoggedIn(isLoggedIn: Boolean, name: String = "", email: String = "", userId: String = "") {
         context.dataStore.edit { prefs ->
             prefs[KEY_IS_LOGGED_IN] = isLoggedIn
             if (name.isNotEmpty()) prefs[KEY_USER_NAME] = name
             if (email.isNotEmpty()) prefs[KEY_USER_EMAIL] = email
+            if (userId.isNotEmpty()) prefs[KEY_USER_ID] = userId
         }
     }
 
